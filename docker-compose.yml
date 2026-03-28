@@ -1,0 +1,49 @@
+version: '3.9'
+
+services:
+  # Java Spring Boot API
+  # Java Spring Boot API
+  doan-api:
+    build: .
+    container_name: doan-api
+    ports:
+      - "8080:8080"
+    environment:
+      - SPRING_PROFILES_ACTIVE=dev
+    volumes:
+      - .:/app
+      - ~/.m2:/root/.m2
+    # Cấu hình GPU thông minh qua biến môi trường
+    # deploy:
+    #   resources:
+    #     reservations:
+    #       devices:
+    #         - driver: nvidia
+    #           count: ${GPU_COUNT:-0} # Nếu không có biến, mặc định = 0 (Chạy CPU)
+    #           capabilities: [gpu, video]
+    # KHÔNG dùng dòng "runtime: nvidia" ở đây nữa để tránh lỗi khởi động
+
+  # MQTT Broker (Mosquitto)
+  mqtt-broker:
+    image: eclipse-mosquitto:2.0.20
+    container_name: mqtt-broker
+    ports:
+      - "1883:1883"
+      - "9001:9001"
+    volumes:
+      - ./mosquitto.conf:/mosquitto/config/mosquitto.conf
+    restart: always
+
+  # MediaMTX - Media Server for RTSP/RTMP/HLS streaming
+  mediamtx:
+    image: bluenviron/mediamtx:latest
+    container_name: mediamtx
+    ports:
+      - "8554:8554"   # RTSP
+      - "1935:1935"   # RTMP
+      - "8888:8888"   # HTTP/WebRTC/API
+      - "8889:8889"   # Metrics
+    volumes:
+      - ./mediamtx.yml:/mediamtx.yml:ro
+    command: mediamtx
+    restart: unless-stopped
