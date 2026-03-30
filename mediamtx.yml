@@ -1,26 +1,20 @@
-# Minimal MediaMTX configuration for AI-IoT Smart Drawer
+# Cấu hình các giao thức kết nối
+rtspAddress: :8554
+rtmpAddress: :1935
+hlsAddress: :8883
+webrtcAddress: :8884
+
+# Cấu hình API và Metrics
+api: yes
+apiAddress: :9997
+
+metrics: yes
+metricsAddress: :9998
+
+# Log và Giao thức truyền tải (Cập nhật theo bản v1.17.0)
+logLevel: info
+rtspTransports: [tcp]
+
 paths:
   all:
     source: publisher
-    sourceOnDemand: yes
-
-# Enable protocols
-rtsp: yes
-rtspAddress: :8554
-
-rtmp: yes
-rtmpAddress: :1935
-
-hls: yes
-hlsAddress: :8888
-
-webrtc: yes
-webrtcAddress: :8888
-
-api: yes
-apiAddress: :8888
-
-metrics: yes
-metricsAddress: :8889
-
-logLevel: info

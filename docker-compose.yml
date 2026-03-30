@@ -41,9 +41,10 @@ services:
     ports:
       - "8554:8554"   # RTSP
       - "1935:1935"   # RTMP
-      - "8888:8888"   # HTTP/WebRTC/API
-      - "8889:8889"   # Metrics
+      - "8883:8883"   # HLS
+      - "8884:8884"   # WebRTC
+      - "9997:9997"   # API
+      - "9998:9998"   # Metrics
     volumes:
       - ./mediamtx.yml:/mediamtx.yml:ro
-    command: mediamtx
     restart: unless-stopped
