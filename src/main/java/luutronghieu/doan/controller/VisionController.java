@@ -13,6 +13,8 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import luutronghieu.doan.dto.DetectionResult;
+import luutronghieu.doan.dto.ClassificationResult;
+import luutronghieu.doan.service.ImageClassificationService;
 import luutronghieu.doan.service.InferenceService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
@@ -31,6 +33,7 @@ import java.util.List;
 public class VisionController {
 
     private final InferenceService inferenceService;
+    private final ImageClassificationService classificationService;
 
     @PostMapping(value = "/detect-people", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     @Operation(
@@ -136,5 +139,60 @@ public class VisionController {
         result.setDetections(List.of());
         result.setInferenceTimeMs(0);
         return result;
+    }
+
+    @PostMapping(value = "/classify-image", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @Operation(
+        summary = "Classify image with MobileNetV2",
+        description = "Upload an image and get classification results from MobileNetV2 model"
+    )
+    @ApiResponses(value = {
+        @ApiResponse(responseCode = "200", description = "Classification successful",
+            content = @Content(schema = @Schema(implementation = ClassificationResult.class))),
+        @ApiResponse(responseCode = "400", description = "Invalid image file"),
+        @ApiResponse(responseCode = "500", description = "Internal server error")
+    })
+    public ResponseEntity<?> classifyImage(
+            @Parameter(description = "Image file to upload", required = true)
+            @RequestParam("file") MultipartFile file) {
+
+        log.info("Received image classification request: {} ({} bytes)", 
+                file.getOriginalFilename(), file.getSize());
+
+        if (file.isEmpty()) {
+            return ResponseEntity.badRequest().body(createErrorResult("File is empty"));
+        }
+
+        if (!isValidImageFile(file)) {
+            return ResponseEntity.badRequest().body(createErrorResult("Invalid image file format. Supported: JPEG, PNG, BMP, GIF"));
+        }
+
+        try {
+            if (!classificationService.isModelLoaded()) {
+                return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
+                        .body(createErrorResult("Classification model is not loaded yet. Please try again later."));
+            }
+
+            byte[] imageBytes = file.getBytes();
+            ai.djl.modality.Classifications classifications = classificationService.runInference(imageBytes);
+            ClassificationResult result = classificationService.convertToClassificationResult(classifications);
+
+            log.info("Classification completed. Top result: {}", result.getMessage());
+
+            return ResponseEntity.ok(result);
+
+        } catch (ModelException | TranslateException e) {
+            log.error("Model inference error", e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(createErrorResult("Model inference failed: " + e.getMessage()));
+        } catch (IOException e) {
+            log.error("File processing error", e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(createErrorResult("File processing failed: " + e.getMessage()));
+        } catch (Exception e) {
+            log.error("Unexpected error", e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(createErrorResult("Unexpected error: " + e.getMessage()));
+        }
     }
 }
