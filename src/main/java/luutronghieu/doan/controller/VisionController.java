@@ -13,6 +13,8 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import luutronghieu.doan.dto.DetectionResult;
+import luutronghieu.doan.dto.TravelPredictionResult;
+import luutronghieu.doan.service.CombinedAIService;
 import luutronghieu.doan.dto.ClassificationResult;
 import luutronghieu.doan.service.ImageClassificationService;
 import luutronghieu.doan.service.InferenceService;
@@ -34,6 +36,7 @@ public class VisionController {
 
     private final InferenceService inferenceService;
     private final ImageClassificationService classificationService;
+    private final CombinedAIService combinedAIService;
 
     @PostMapping(value = "/detect-people", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     @Operation(
@@ -89,6 +92,43 @@ public class VisionController {
             log.error("Unexpected error", e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(createErrorResult("Unexpected error: " + e.getMessage()));
+        }
+    }
+
+    @PostMapping(value = "/predict-travel", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @Operation(
+        summary = "Predict long-distance travel based on detected items on people",
+        description = "Upload an image, detect people (YOLOv8), and classify items they carry (MobileNetV2) to predict if they are traveling far."
+    )
+    @ApiResponses(value = {
+        @ApiResponse(responseCode = "200", description = "Prediction successful",
+            content = @Content(schema = @Schema(implementation = TravelPredictionResult.class))),
+        @ApiResponse(responseCode = "400", description = "Invalid image file"),
+        @ApiResponse(responseCode = "500", description = "Internal server error")
+    })
+    public ResponseEntity<?> predictTravel(
+            @Parameter(description = "Image file to upload", required = true)
+            @RequestParam("file") MultipartFile file) {
+
+        log.info("Received travel prediction request: {} ({} bytes)", 
+                file.getOriginalFilename(), file.getSize());
+
+        if (file.isEmpty()) {
+            return ResponseEntity.badRequest().body(createErrorResult("File is empty"));
+        }
+
+        if (!isValidImageFile(file)) {
+            return ResponseEntity.badRequest().body(createErrorResult("Invalid image file format. Supported: JPEG, PNG, BMP, GIF"));
+        }
+
+        try {
+            byte[] imageBytes = file.getBytes();
+            TravelPredictionResult result = combinedAIService.predictTravel(imageBytes);
+            return ResponseEntity.ok(result);
+        } catch (Exception e) {
+            log.error("Error during travel prediction", e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(createErrorResult("An unexpected error occurred during prediction: " + e.getMessage()));
         }
     }
 
